@@ -372,7 +372,7 @@ class Trainer(object):
         countTotal = 10
 
         count = 0
-        is_blend = 0
+        is_blend = 1
         save_dir = os.path.join('logs', '{:02d}'.format(epoch))
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
