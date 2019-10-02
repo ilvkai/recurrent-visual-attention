@@ -185,38 +185,40 @@ class Trainer(object):
             )
 
             # train for 1 epoch
-            # train_loss, train_acc = self.train_one_epoch(epoch)
+            train_loss, train_acc = self.train_one_epoch(epoch)
 
             # evaluate on validation set
             valid_loss, valid_acc = self.validate(epoch)
-            train_loss, train_acc = self.train_one_epoch(epoch)
+            # train_loss, train_acc = self.train_one_epoch(epoch)
 
             # # reduce lr if validation loss plateaus
             # self.scheduler.step(valid_loss)
 
             # is_best = valid_acc > self.best_valid_acc
-            # msg1 = "train loss: {:.3f} - train acc: {:.3f} "
-            # msg2 = "- val loss: {:.3f} - val acc: {:.3f}"
-            # if is_best:
-            #     self.counter = 0
-            #     msg2 += " [*]"
-            # msg = msg1 + msg2
-            # print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
-            #
-            # # check for improvement
-            # if not is_best:
-            #     self.counter += 1
-            # if self.counter > self.train_patience:
-            #     print("[!] No improvement in a while, stopping training.")
-            #     return
-            # self.best_valid_acc = max(valid_acc, self.best_valid_acc)
-            # self.save_checkpoint(
-            #     {'epoch': epoch + 1,
-            #      'model_state': self.model.state_dict(),
-            #      'optim_state': self.optimizer.state_dict(),
-            #      'best_valid_acc': self.best_valid_acc,
-            #      }, is_best
-            # )
+            is_best = 1
+            msg1 = "train loss: {:.3f} - train acc: {:.3f} "
+            msg2 = "- val loss: {:.3f} - val acc: {:.3f}"
+            if is_best:
+                self.counter = 0
+                msg2 += " [*]"
+            msg = msg1 + msg2
+            print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
+
+            # check for improvement
+            if not is_best:
+                self.counter += 1
+            if self.counter > self.train_patience:
+                print("[!] No improvement in a while, stopping training.")
+                return
+            self.best_valid_acc = max(valid_acc, self.best_valid_acc)
+            is_best =1
+            self.save_checkpoint(
+                {'epoch': epoch + 1,
+                 'model_state': self.model.state_dict(),
+                 'optim_state': self.optimizer.state_dict(),
+                 'best_valid_acc': self.best_valid_acc,
+                 }, is_best
+            )
 
     def train_one_epoch(self, epoch):
         """
@@ -230,10 +232,15 @@ class Trainer(object):
         batch_time = AverageMeter()
         losses = AverageMeter()
         accs = AverageMeter()
+        countTotal =10
 
         tic = time.time()
+        count=1
         with tqdm(total=self.num_train) as pbar:
             for i, (x, fixation, y, indexSeq, frameEnd) in enumerate(self.train_loader):
+                if count > countTotal:
+                    return losses.avg, accs.avg
+                count = count + 1
                 y= y.squeeze().float()
 
                 if self.use_gpu:
@@ -372,7 +379,7 @@ class Trainer(object):
         countTotal = 10
 
         count = 0
-        is_blend = 1
+        is_blend = 0
         save_dir = os.path.join('logs', '{:02d}'.format(epoch))
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
