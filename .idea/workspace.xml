@@ -2,37 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ecc96d25-d54a-4bbf-9e69-9845a8ddf4db" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/data_prepare/getDreyeveFixations.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getDreyeveImages.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getDreyeveSingleSeqImages.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getImageNP448.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getResizedFixations.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getResizedImgs.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data_prepare/getResizedImgs_256.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/dataset/dreyeve_seq.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/data/my_utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/data/sampler.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/data/transforms.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/imgs2video.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/io_helper.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/logging.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/meters.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/osutils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/serialization.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/stitching.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/videotransforms.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/visualization.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_loader.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modules.py" beforeDir="false" afterPath="$PROJECT_DIR$/modules.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plot_glimpses.py" beforeDir="false" afterPath="$PROJECT_DIR$/plot_glimpses.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_modules.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_modules.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_retina.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_retina.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dataset/dreyeve_seq.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataset/dreyeve_seq.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -59,43 +30,10 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/trainer.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="260">
-              <caret line="379" column="31" selection-start-line="379" selection-start-column="31" selection-end-line="379" selection-end-column="31" />
+            <state relative-caret-position="333">
+              <caret line="242" column="33" selection-start-line="242" selection-start-column="33" selection-end-line="242" selection-end-column="33" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/main.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="391">
-              <caret line="26" column="65" lean-forward="true" selection-start-line="26" selection-start-column="65" selection-end-line="26" selection-end-column="65" />
-              <folding>
-                <element signature="e#0#12#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/.PyCharm2019.1/system/remote_sources/-1147653061/1746790633/torch/utils/data/dataloader.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="175">
-              <caret line="521" selection-start-line="521" selection-end-line="521" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/data_prepare/getDreyeveImages.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="221">
-              <caret line="34" column="30" lean-forward="true" selection-start-line="34" selection-start-column="30" selection-end-line="34" selection-end-column="30" />
-              <folding>
-                <element signature="e#0#10#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -105,7 +43,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>valid</find>
       <find />
       <find>train_acc</find>
       <find>log_probas</find>
@@ -135,6 +72,7 @@
       <find>0,0</find>
       <find>shuff</find>
       <find>cv2.im</find>
+      <find>one_</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -153,10 +91,10 @@
         <option value="$PROJECT_DIR$/utils/logging.py" />
         <option value="$PROJECT_DIR$/utils/utils.py" />
         <option value="$PROJECT_DIR$/utils/data/my_utils.py" />
-        <option value="$PROJECT_DIR$/dataset/dreyeve_seq.py" />
         <option value="$PROJECT_DIR$/utils/visualization.py" />
         <option value="$PROJECT_DIR$/main.py" />
         <option value="$PROJECT_DIR$/data_prepare/getDreyeveImages.py" />
+        <option value="$PROJECT_DIR$/dataset/dreyeve_seq.py" />
         <option value="$PROJECT_DIR$/trainer.py" />
       </list>
     </option>
@@ -175,15 +113,14 @@
   <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="-8" />
     <option name="y" value="-8" />
-    <option name="width" value="974" />
-    <option name="height" value="1047" />
+    <option name="width" value="1936" />
+    <option name="height" value="1056" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -216,9 +153,11 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="true" />
     <property name="WebServerToolWindowPanel.toolwindow.highlight.mappings" value="true" />
     <property name="WebServerToolWindowPanel.toolwindow.highlight.symlinks" value="true" />
@@ -346,13 +285,13 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="197232000" />
+    <option name="totallyTimeSpent" value="203657000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.14285715" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.1444563" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -372,7 +311,7 @@
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="Remote Host" order="3" weight="0.33635396" />
+      <window_info anchor="right" id="Remote Host" order="3" visible="true" weight="0.33635396" />
       <window_info anchor="right" id="SciView" order="4" weight="0.32995737" />
       <window_info anchor="right" id="Database" order="5" weight="0.32995737" />
     </layout>
@@ -390,7 +329,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/trainer.py</url>
-          <line>630</line>
+          <line>637</line>
           <option name="timeStamp" value="120" />
         </line-breakpoint>
       </breakpoints>
@@ -618,8 +557,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/config.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="167">
-          <caret line="17" column="7" selection-start-line="17" selection-end-line="17" selection-end-column="7" />
+        <state relative-caret-position="185">
+          <caret line="64" column="37" selection-start-line="64" selection-start-column="33" selection-end-line="64" selection-end-column="37" />
         </state>
       </provider>
     </entry>
@@ -634,16 +573,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="116">
           <caret line="53" selection-start-line="53" selection-end-line="53" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/dataset/dreyeve_seq.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-245">
-          <caret line="80" column="93" lean-forward="true" selection-start-line="80" selection-start-column="93" selection-end-line="80" selection-end-column="93" />
-          <folding>
-            <element signature="e#1#55#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -666,8 +595,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/data_prepare/getDreyeveImages.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="221">
-          <caret line="34" column="30" lean-forward="true" selection-start-line="34" selection-start-column="30" selection-end-line="34" selection-end-column="30" />
+        <state relative-caret-position="493">
+          <caret line="34" column="30" selection-start-line="34" selection-start-column="30" selection-end-line="34" selection-end-column="30" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
@@ -681,10 +610,30 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="1377">
+            <caret line="81" lean-forward="true" selection-start-line="81" selection-end-line="81" />
+          </first_editor>
+          <second_editor />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dataset/dreyeve_seq.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="367">
+          <caret line="118" column="35" lean-forward="true" selection-start-line="118" selection-start-column="35" selection-end-line="118" selection-end-column="35" />
+          <folding>
+            <element signature="e#1#55#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="391">
-          <caret line="26" column="65" lean-forward="true" selection-start-line="26" selection-start-column="65" selection-end-line="26" selection-end-column="65" />
+        <state relative-caret-position="367">
+          <caret line="32" lean-forward="true" selection-start-line="32" selection-end-line="32" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>
@@ -693,8 +642,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/trainer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="260">
-          <caret line="379" column="31" selection-start-line="379" selection-start-column="31" selection-end-line="379" selection-end-column="31" />
+        <state relative-caret-position="333">
+          <caret line="242" column="33" selection-start-line="242" selection-start-column="33" selection-end-line="242" selection-end-column="33" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>

@@ -12,7 +12,8 @@ import csv
 import h5py
 import random
 import os
-import os.path
+import os.path as osp
+import pandas as pd
 
 from config import dreyeve_dir, tmp_dir
 from config import dreyeve_train_seq, dreyeve_test_seq
@@ -111,6 +112,31 @@ class Dreyeve(data_utl.Dataset):
 
         # pt_loc = (int(loc[0]), int(loc[1]))
         return loc
+
+    def get_speed_and_course(self, indexSeq, indexFrame, duration = 50):
+        # get speed and course for 50 frames
+        # if less than 50, the first several frames' speed and course equal the ones in first frame
+        pathFile = osp.join(self.root, '{:02d}'.format(indexSeq), 'speed_course_coord.txt')
+        colnames = ['frame', 'speed', 'course', 'lat', 'lon', 'no-meaning']
+        df = pd.read_csv(pathFile, sep='\t', names=colnames, header=None)
+        # print(df.iloc[indexFrame + 1]['speed'])
+
+        speeds = np.zeros([duration],dtype=np.float32)
+        for indexDur in range(duration):
+            if indexFrame - 1 - indexDur>=0:
+                speeds[indexDur] = df.iloc[indexFrame - 1 - indexDur]['speed']/100
+            else:
+                speeds[indexDur] = df.iloc[0]['speed'] /100
+
+        courses = np.zeros([duration], dtype = np.float32)
+        for indexCou in range(duration):
+            if indexFrame - 1 - indexDur >= 0:
+                courses[indexCou] = df.iloc[indexFrame - 1 - indexCou]['course']/360
+            else:
+                courses[indexCou] = df.iloc[0]['course']/360
+
+        courses = courses - courses[-1]
+        return speeds, courses
 
 
 
