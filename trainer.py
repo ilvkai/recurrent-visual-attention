@@ -376,10 +376,10 @@ class Trainer(object):
         """
         losses = AverageMeter()
         accs = AverageMeter()
-        countTotal = 10
+        countTotal = 50
 
         count = 0
-        is_blend = 0
+        is_blend = 1
         save_dir = os.path.join('logs', '{:02d}'.format(epoch))
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
