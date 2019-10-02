@@ -232,15 +232,15 @@ class Trainer(object):
         batch_time = AverageMeter()
         losses = AverageMeter()
         accs = AverageMeter()
-        countTotal =10
+        # countTotal =10
 
         tic = time.time()
-        count=1
+        # count=1
         with tqdm(total=self.num_train) as pbar:
             for i, (x, fixation, y, indexSeq, frameEnd) in enumerate(self.train_loader):
-                if count > countTotal:
-                    return losses.avg, accs.avg
-                count = count + 1
+                # if count > countTotal:
+                #     return losses.avg, accs.avg
+                # count = count + 1
                 y= y.squeeze().float()
 
                 if self.use_gpu:
