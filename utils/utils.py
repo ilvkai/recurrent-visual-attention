@@ -140,4 +140,5 @@ def save_config(config):
     print("[*] Param Path: {}".format(param_path))
 
     with open(param_path, 'w') as fp:
+
         json.dump(config.__dict__, fp, indent=4, sort_keys=True)

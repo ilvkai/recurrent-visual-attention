@@ -3,7 +3,7 @@ sys.path.append("..")
 
 import torch
 
-from utils import img2array
+from utils.utils import img2array
 from torch.autograd import Variable
 from model import RecurrentAttention
 

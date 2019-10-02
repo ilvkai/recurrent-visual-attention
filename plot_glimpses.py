@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from utils import denormalize, bounding_box
+from utils.utils import denormalize, bounding_box
 
 
 def parse_arguments():

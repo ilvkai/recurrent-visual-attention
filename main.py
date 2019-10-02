@@ -2,8 +2,9 @@ import torch
 
 from trainer import Trainer
 from config import get_config
-from utils import prepare_dirs, save_config
+from utils.utils import prepare_dirs, save_config
 from data_loader import get_test_loader, get_train_valid_loader
+from dataset.dreyeve_seq import Dreyeve as Dataset
 
 
 def main(config):
@@ -18,20 +19,17 @@ def main(config):
         torch.cuda.manual_seed(config.random_seed)
         kwargs = {'num_workers': 1, 'pin_memory': True}
 
-    # instantiate data loaders
-    if config.is_train:
-        data_loader = get_train_valid_loader(
-            config.data_dir, config.batch_size,
-            config.random_seed, config.valid_size,
-            config.shuffle, config.show_sample, **kwargs
-        )
-    else:
-        data_loader = get_test_loader(
-            config.data_dir, config.batch_size, **kwargs
-        )
+    dataset = Dataset('train')
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=12,
+                                               pin_memory=True)
+
+    test_dataset = Dataset('test')
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=12,
+                                                 pin_memory=True)
+
 
     # instantiate trainer
-    trainer = Trainer(config, data_loader)
+    trainer = Trainer(config, (train_loader, test_loader))
 
     # either train
     if config.is_train:

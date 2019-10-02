@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 import numpy as np
+from torchvision.models import resnet50
 
 
 class retina(object):
@@ -37,7 +38,7 @@ class retina(object):
         self.k = k
         self.s = s
 
-    def foveate(self, x, l):
+    def foveate(self, x, l, frame_index):
         """
         Extract `k` square patches of size `g`, centered
         at location `l`. The initial patch is a square of
@@ -53,7 +54,7 @@ class retina(object):
 
         # extract k patches of increasing size
         for i in range(self.k):
-            phi.append(self.extract_patch(x, l, size))
+            phi.append(self.extract_patch(x, l, size, frame_index))
             size = int(self.s * size)
 
         # resize the patches to squares of size g
@@ -63,11 +64,11 @@ class retina(object):
 
         # concatenate into a single tensor and flatten
         phi = torch.cat(phi, 1)
-        phi = phi.view(phi.shape[0], -1)
+        # phi = phi.view(phi.shape[0], -1)
 
         return phi
 
-    def extract_patch(self, x, l, size):
+    def extract_patch(self, x, l, size, frame_index):
         """
         Extract a single patch for each image in the
         minibatch `x`.
@@ -81,9 +82,10 @@ class retina(object):
 
         Returns
         -------
-        - patch: a 4D Tensor of shape (B, size, size, C)
+        - patch: a 5D Tensor of shape (B, size, frameNum size, C)
         """
-        B, C, H, W = x.shape
+        B, C, F, H, W = x.shape
+        x = x[:, :, frame_index, :, :]
 
         # denormalize coords of patch center
         coords = self.denormalize(H, l)
@@ -103,24 +105,38 @@ class retina(object):
             from_y, to_y = patch_y[i], patch_y[i] + size
 
             # cast to ints
-            from_x, to_x = from_x.data[0], to_x.data[0]
-            from_y, to_y = from_y.data[0], to_y.data[0]
+            from_x, to_x = from_x.data, to_x.data
+            from_y, to_y = from_y.data, to_y.data
 
             # pad tensor in case exceeds
             if self.exceeds(from_x, to_x, from_y, to_y, T):
-                pad_dims = (
-                    size//2+1, size//2+1,
-                    size//2+1, size//2+1,
-                    0, 0,
-                    0, 0,
-                )
-                im = F.pad(im, pad_dims, "constant", 0)
+                if from_x < 0:
+                    from_x = 0
+                    to_x = size
+                if from_y < 0:
+                    from_y = 0
+                    to_y = size
+                if to_x > T:
+                    from_x = T - size
+                    to_x = T
+                if to_y > T:
+                    from_y = T - size
+                    to_y = T
 
-                # add correction factor
-                from_x += (size//2+1)
-                to_x += (size//2+1)
-                from_y += (size//2+1)
-                to_y += (size//2+1)
+                # pad_dims = (
+                #     size//2+1, size//2+1,
+                #     size//2+1, size//2+1,
+                #     0, 0,
+                #     0, 0,
+                # )
+                # im = F.pad(im, pad_dims, "constant", 0)
+
+                # # add correction factor
+                # from_x += (size//2+1)
+                # to_x += (size//2+1)
+                # from_y += (size//2+1)
+                # to_y += (size//2+1)
+
 
             # and finally extract
             patch.append(im[:, :, from_y:to_y, from_x:to_x])
@@ -191,8 +207,11 @@ class glimpse_network(nn.Module):
         super(glimpse_network, self).__init__()
         self.retina = retina(g, k, s)
 
+        self.feature_extractor = nn.Sequential(*list(resnet50(pretrained=True).children())[:-1])
+
         # glimpse layer
         D_in = k*g*g*c
+        D_in = 2048
         self.fc1 = nn.Linear(D_in, h_g)
 
         # location layer
@@ -202,9 +221,11 @@ class glimpse_network(nn.Module):
         self.fc3 = nn.Linear(h_g, h_g+h_l)
         self.fc4 = nn.Linear(h_l, h_g+h_l)
 
-    def forward(self, x, l_t_prev):
+    def forward(self, x, l_t_prev, frame_index):
         # generate glimpse phi from image x
-        phi = self.retina.foveate(x, l_t_prev)
+        phi = self.retina.foveate(x, l_t_prev, frame_index)
+        phi = self.feature_extractor(phi).detach()
+        phi = phi.view(phi.size(0), -1)
 
         # flatten location vector
         l_t_prev = l_t_prev.view(l_t_prev.size(0), -1)

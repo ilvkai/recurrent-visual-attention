@@ -1,9 +1,10 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
+import cv2
 
 from torch.autograd import Variable
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import os
 import time
@@ -11,9 +12,25 @@ import shutil
 import pickle
 
 from tqdm import tqdm
-from utils import AverageMeter
+from utils.utils import AverageMeter
 from model import RecurrentAttention
 from tensorboard_logger import configure, log_value
+from utils.visualization import blend_map_with_focus_rectangle, blend_map_with_focus_circle
+
+from config import w,h
+from utils.data.my_utils import read_image
+
+from config import dreyeve_dir, tmp_dir
+
+# get mean location of fixation
+# def get_mean_loc(fixs):
+#     fixs = fixs.numpy()
+#     gt_locs = np.zeros([fixs.shape[0], 2])
+#     for index in range(fixs.shape[0]):
+#         fix = fixs[index]
+#         gt_locs[index] = np.mean(np.where(fix>0), axis=1)
+#
+#     return torch.from_numpy(gt_locs/w-0.5)
 
 
 class Trainer(object):
@@ -34,6 +51,7 @@ class Trainer(object):
         - data_loader: data iterator
         """
         self.config = config
+        self.dis_R_thres = config.dis_R_thres
 
         # glimpse network params
         self.patch_size = config.patch_size
@@ -49,18 +67,19 @@ class Trainer(object):
         # reinforce params
         self.std = config.std
         self.M = config.M
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # data params
         if config.is_train:
             self.train_loader = data_loader[0]
             self.valid_loader = data_loader[1]
-            self.num_train = len(self.train_loader.sampler.indices)
-            self.num_valid = len(self.valid_loader.sampler.indices)
+            self.num_train = len(self.train_loader)*config.batch_size
+            self.num_valid = len(self.valid_loader)*config.batch_size
         else:
             self.test_loader = data_loader
             self.num_test = len(self.test_loader.dataset)
         self.num_classes = 10
-        self.num_channels = 1
+        self.num_channels = 3
 
         # training params
         self.epochs = config.epochs
@@ -106,6 +125,7 @@ class Trainer(object):
         )
         if self.use_gpu:
             self.model.cuda()
+        self.model.sensor.feature_extractor.eval()
 
         print('[*] Number of model parameters: {:,}'.format(
             sum([p.data.nelement() for p in self.model.parameters()])))
@@ -165,37 +185,38 @@ class Trainer(object):
             )
 
             # train for 1 epoch
-            train_loss, train_acc = self.train_one_epoch(epoch)
+            # train_loss, train_acc = self.train_one_epoch(epoch)
 
             # evaluate on validation set
             valid_loss, valid_acc = self.validate(epoch)
+            train_loss, train_acc = self.train_one_epoch(epoch)
 
             # # reduce lr if validation loss plateaus
             # self.scheduler.step(valid_loss)
 
-            is_best = valid_acc > self.best_valid_acc
-            msg1 = "train loss: {:.3f} - train acc: {:.3f} "
-            msg2 = "- val loss: {:.3f} - val acc: {:.3f}"
-            if is_best:
-                self.counter = 0
-                msg2 += " [*]"
-            msg = msg1 + msg2
-            print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
-
-            # check for improvement
-            if not is_best:
-                self.counter += 1
-            if self.counter > self.train_patience:
-                print("[!] No improvement in a while, stopping training.")
-                return
-            self.best_valid_acc = max(valid_acc, self.best_valid_acc)
-            self.save_checkpoint(
-                {'epoch': epoch + 1,
-                 'model_state': self.model.state_dict(),
-                 'optim_state': self.optimizer.state_dict(),
-                 'best_valid_acc': self.best_valid_acc,
-                 }, is_best
-            )
+            # is_best = valid_acc > self.best_valid_acc
+            # msg1 = "train loss: {:.3f} - train acc: {:.3f} "
+            # msg2 = "- val loss: {:.3f} - val acc: {:.3f}"
+            # if is_best:
+            #     self.counter = 0
+            #     msg2 += " [*]"
+            # msg = msg1 + msg2
+            # print(msg.format(train_loss, train_acc, valid_loss, valid_acc))
+            #
+            # # check for improvement
+            # if not is_best:
+            #     self.counter += 1
+            # if self.counter > self.train_patience:
+            #     print("[!] No improvement in a while, stopping training.")
+            #     return
+            # self.best_valid_acc = max(valid_acc, self.best_valid_acc)
+            # self.save_checkpoint(
+            #     {'epoch': epoch + 1,
+            #      'model_state': self.model.state_dict(),
+            #      'optim_state': self.optimizer.state_dict(),
+            #      'best_valid_acc': self.best_valid_acc,
+            #      }, is_best
+            # )
 
     def train_one_epoch(self, epoch):
         """
@@ -212,7 +233,9 @@ class Trainer(object):
 
         tic = time.time()
         with tqdm(total=self.num_train) as pbar:
-            for i, (x, y) in enumerate(self.train_loader):
+            for i, (x, fixation, y, indexSeq, frameEnd) in enumerate(self.train_loader):
+                y= y.squeeze().float()
+
                 if self.use_gpu:
                     x, y = x.cuda(), y.cuda()
                 x, y = Variable(x), Variable(y)
@@ -235,7 +258,7 @@ class Trainer(object):
                 baselines = []
                 for t in range(self.num_glimpses - 1):
                     # forward pass through model
-                    h_t, l_t, b_t, p = self.model(x, l_t, h_t)
+                    h_t, l_t, b_t, p = self.model(x, l_t, h_t, t)
 
                     # store
                     locs.append(l_t[0:9])
@@ -243,8 +266,8 @@ class Trainer(object):
                     log_pi.append(p)
 
                 # last iteration
-                h_t, l_t, b_t, log_probas, p = self.model(
-                    x, l_t, h_t, last=True
+                h_t, l_t, b_t, l_t_final, p = self.model(
+                    x, l_t, h_t, self.num_glimpses-1, last=True
                 )
                 log_pi.append(p)
                 baselines.append(b_t)
@@ -255,12 +278,23 @@ class Trainer(object):
                 log_pi = torch.stack(log_pi).transpose(1, 0)
 
                 # calculate reward
-                predicted = torch.max(log_probas, 1)[1]
-                R = (predicted.detach() == y).float()
-                R = R.unsqueeze(1).repeat(1, self.num_glimpses)
+                # predicted = torch.max(log_probas, 1)[1]
+                # R = (predicted.detach() == y).float()
+
+                R = torch.zeros(y.shape[0])
+                for index in range(y.shape[0]):
+                    # get the distance of two locations
+                    distance = torch.sqrt(torch.pow(l_t_final[index,0]-y[index,0], 2) + torch.pow(l_t_final[index,1]-y[index,1], 2)).float()
+                    R[index] = distance < self.dis_R_thres
+                    # temp= distance < self.dis_R_thres
+                    # R[index] = 1.4 - distance
+                # R = locs
+                sum_R = torch.sum(R)
+                R = R.unsqueeze(1).repeat(1, self.num_glimpses).to(self.device)
 
                 # compute losses for differentiable modules
-                loss_action = F.nll_loss(log_probas, y)
+                # loss_action = F.nll_loss(log_probas, y)
+                loss_action = F.mse_loss(l_t_final, y)
                 loss_baseline = F.mse_loss(baselines, R)
 
                 # compute reinforce loss
@@ -270,15 +304,17 @@ class Trainer(object):
                 loss_reinforce = torch.mean(loss_reinforce, dim=0)
 
                 # sum up into a hybrid loss
-                loss = loss_action + loss_baseline + loss_reinforce
+                loss = loss_action*100 + loss_baseline + loss_reinforce
+                # loss =  loss_baseline + loss_reinforce
 
                 # compute accuracy
-                correct = (predicted == y).float()
-                acc = 100 * (correct.sum() / len(y))
+                # correct = dis.float()
+                # acc = 100 * (correct.sum() / len(y))
+                dist = distance
 
                 # store
-                losses.update(loss.data[0], x.size()[0])
-                accs.update(acc.data[0], x.size()[0])
+                losses.update(loss.data, x.size()[0])
+                accs.update(dist.data, x.size()[0])
 
                 # compute gradients and update SGD
                 self.optimizer.zero_grad()
@@ -291,8 +327,8 @@ class Trainer(object):
 
                 pbar.set_description(
                     (
-                        "{:.1f}s - loss: {:.3f} - acc: {:.3f}".format(
-                            (toc-tic), loss.data[0], acc.data[0]
+                        "{:.1f}s - loss: {:.3f} - dis: {:.3f} - sum_R : {}".format(
+                            (toc-tic), loss.data, dist.data, sum_R
                         )
                     )
                 )
@@ -333,14 +369,27 @@ class Trainer(object):
         """
         losses = AverageMeter()
         accs = AverageMeter()
+        countTotal = 10
 
-        for i, (x, y) in enumerate(self.valid_loader):
+        count = 0
+        is_blend = 0
+        save_dir = os.path.join('logs', '{:02d}'.format(epoch))
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+
+        for i, (x, fixs, y, indexSeq, frameEnd) in enumerate(self.valid_loader):
+            y = y.squeeze().float()
+
+            if count > countTotal:
+                return losses.avg, accs.avg
+            count = count + 1
+
             if self.use_gpu:
                 x, y = x.cuda(), y.cuda()
             x, y = Variable(x), Variable(y)
 
             # duplicate 10 times
-            x = x.repeat(self.M, 1, 1, 1)
+            x = x.repeat(self.M,1, 1, 1, 1)
 
             # initialize location vector and hidden state
             self.batch_size = x.shape[0]
@@ -351,15 +400,15 @@ class Trainer(object):
             baselines = []
             for t in range(self.num_glimpses - 1):
                 # forward pass through model
-                h_t, l_t, b_t, p = self.model(x, l_t, h_t)
+                h_t, l_t, b_t, p = self.model(x, l_t, h_t, t)
 
                 # store
                 baselines.append(b_t)
                 log_pi.append(p)
 
             # last iteration
-            h_t, l_t, b_t, log_probas, p = self.model(
-                x, l_t, h_t, last=True
+            h_t, l_t, b_t, l_t_final, p = self.model(
+                x, l_t, h_t, self.num_glimpses-1, last=True
             )
             log_pi.append(p)
             baselines.append(b_t)
@@ -369,10 +418,39 @@ class Trainer(object):
             log_pi = torch.stack(log_pi).transpose(1, 0)
 
             # average
-            log_probas = log_probas.view(
-                self.M, -1, log_probas.shape[-1]
+            l_t_final = l_t_final.view(
+                self.M, -1, l_t_final.shape[-1]
             )
-            log_probas = torch.mean(log_probas, dim=0)
+            l_t_final = torch.mean(l_t_final, dim=0)
+
+            if is_blend:
+                for indexBlend in range(x.shape[0]):
+                    # img = x[indexBlend, :, -1, : , :].cpu().numpy()
+                    # img = np.transpose(img, (1,2,0))*255
+                    # img = img[:, :, [2, 1, 0]]
+                    pathImg = os.path.join(dreyeve_dir, '{:02d}'.format(indexSeq[indexBlend]), 'frames', '{:06d}.jpg'
+                                           .format(frameEnd[indexBlend]))
+                    img = read_image(pathImg, channels_first= False, color=True)
+                    # cv2.imwrite( 'temp.jpg', img)
+                    pathFix = os.path.join(dreyeve_dir, '{:02d}'.format(indexSeq[indexBlend]), 'saliency_fix', '{:06d}.png'
+                                           .format(frameEnd[indexBlend]))
+                    map = read_image(pathFix, channels_first= False, color=False)
+                    # map = fixs[indexBlend, :,:].cpu().numpy()
+                    loc = l_t_final[indexBlend, :].cpu().detach().numpy()
+                    loc_gt = y[indexBlend].cpu().numpy()
+                    # blend = blend_map_with_focus_circle
+                    # loc= np.array([0,0])
+
+                    # draw target
+                    blend = blend_map_with_focus_rectangle(img, map, loc, color= (0, 0, 255))
+                    #draw gt
+                    if not (np.isnan(loc_gt[0]) or np.isnan(loc_gt[1])):
+                        # loc_gt[0]=-0.9
+                        # loc_gt[1]=0.2
+                        blend = blend_map_with_focus_rectangle(blend, map, loc_gt, color=(0, 255, 0))
+                        # blend = blend_map_with_focus_circle(img, map, loc_gt, color=(0, 255, 0))
+
+                    cv2.imwrite(os.path.join(save_dir, '{:06d}.jpg'.format(frameEnd[indexBlend])), blend)
 
             baselines = baselines.contiguous().view(
                 self.M, -1, baselines.shape[-1]
@@ -384,13 +462,24 @@ class Trainer(object):
             )
             log_pi = torch.mean(log_pi, dim=0)
 
-            # calculate reward
-            predicted = torch.max(log_probas, 1)[1]
-            R = (predicted.detach() == y).float()
-            R = R.unsqueeze(1).repeat(1, self.num_glimpses)
+            # # calculate reward
+            # predicted = torch.max(log_probas, 1)[1]
+            # R = (predicted.detach() == y).float()
+            # R = R.unsqueeze(1).repeat(1, self.num_glimpses)
+            dis = 0
+            R = torch.zeros(y.shape[0])
+            for index in range(y.shape[0]):
+                # get the distance of two locations
+                distance = torch.sqrt(
+                    torch.pow(l_t_final[index, 0] - y[index, 0], 2) + torch.pow(l_t_final[index, 1] - y[index, 1], 2))
+                dis = dis + distance
+                # R[index] = distance < self.dis_R_thres
+                R[index] = distance < self.dis_R_thres
+            # R = locs
+            R = R.unsqueeze(1).repeat(1, self.num_glimpses).to(self.device)
 
             # compute losses for differentiable modules
-            loss_action = F.nll_loss(log_probas, y)
+            loss_action = F.mse_loss(l_t_final, y)
             loss_baseline = F.mse_loss(baselines, R)
 
             # compute reinforce loss
@@ -399,15 +488,20 @@ class Trainer(object):
             loss_reinforce = torch.mean(loss_reinforce, dim=0)
 
             # sum up into a hybrid loss
-            loss = loss_action + loss_baseline + loss_reinforce
+            loss = loss_action*100 + loss_baseline + loss_reinforce
+            # loss =  loss_baseline + loss_reinforce
 
             # compute accuracy
-            correct = (predicted == y).float()
-            acc = 100 * (correct.sum() / len(y))
+            # compute accuracy
+            correct = dis.float()
+            # acc = 100 * (correct.sum() / len(y))
+            acc = dis / len(y)
+
+            print('avg dist is {}'.format(acc))
 
             # store
-            losses.update(loss.data[0], x.size()[0])
-            accs.update(acc.data[0], x.size()[0])
+            losses.update(loss.data, x.size()[0])
+            accs.update(acc.data, x.size()[0])
 
             # log to tensorboard
             if self.use_tensorboard:
@@ -524,3 +618,23 @@ class Trainer(object):
                 "[*] Loaded {} checkpoint @ epoch {}".format(
                     filename, ckpt['epoch'])
             )
+
+if __name__ == '__main__':
+    # test get_mean_loc
+    print('test get_mean_loc')
+    pathImg = '/home/lk/data/DREYEVE_DATA/01/frames/000001.jpg'
+    pathFix = '/home/lk/data/DREYEVE_DATA/01/saliency_fix/000001.png'
+
+    img = read_image(pathImg, channels_first=True, color=True)/255
+    fix = read_image(pathFix, channels_first=True, color=False) / 255
+    # fix = torch.from_numpy(fix)
+    np.mean(np.where(fix ==np.max(fix)), axis=1)
+
+
+
+
+    get_mean_loc()
+
+
+
+

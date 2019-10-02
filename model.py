@@ -59,10 +59,11 @@ class RecurrentAttention(nn.Module):
         self.sensor = glimpse_network(h_g, h_l, g, k, s, c)
         self.rnn = core_network(hidden_size, hidden_size)
         self.locator = location_network(hidden_size, 2, std)
+        self.locator_final = location_network(hidden_size, 2, std)
         self.classifier = action_network(hidden_size, num_classes)
         self.baseliner = baseline_network(hidden_size, 1)
 
-    def forward(self, x, l_t_prev, h_t_prev, last=False):
+    def forward(self, x, l_t_prev, h_t_prev, frame_index, last=False):
         """
         Run the recurrent attention model for 1 timestep
         on the minibatch of images `x`.
@@ -98,7 +99,7 @@ class RecurrentAttention(nn.Module):
           output log probability vector over the classes.
         - log_pi: a vector of length (B,).
         """
-        g_t = self.sensor(x, l_t_prev)
+        g_t = self.sensor(x, l_t_prev, frame_index)
         h_t = self.rnn(g_t, h_t_prev)
         mu, l_t = self.locator(h_t)
         b_t = self.baseliner(h_t).squeeze()
@@ -109,8 +110,11 @@ class RecurrentAttention(nn.Module):
         log_pi = Normal(mu, self.std).log_prob(l_t)
         log_pi = torch.sum(log_pi, dim=1)
 
+        # if last:
+        #     log_probas = self.classifier(h_t)
+        #     return h_t, l_t, b_t, log_probas, log_pi
         if last:
-            log_probas = self.classifier(h_t)
-            return h_t, l_t, b_t, log_probas, log_pi
+            l_t_final, l_t_final_noise = self.locator_final(h_t)
+            return h_t, l_t, b_t, l_t_final, log_pi
 
         return h_t, l_t, b_t, log_pi

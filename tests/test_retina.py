@@ -10,7 +10,7 @@ from PIL import Image
 from modules import retina
 from functools import reduce
 from torch.autograd import Variable
-from utils import img2array, array2img
+from utils.utils import img2array, array2img
 
 # params
 TEST_GLIMPSE = True

@@ -13,10 +13,28 @@ def add_argument_group(name):
     arg_lists.append(arg)
     return arg
 
+# dataset for dreyeve
+dreyeve_dir = '/home/lk/data/DREYEVE_DATA'
+tmp_dir = '/tmp/lk/data/DREYEVE_DATA'
+frame_size_before_crop = 256
+dreyeve_train_seq = range(1, 37+1)
+dreyeve_test_seq = range(38, 74+1)
+n_sequences = 74
+total_frames_each_run = 7500
+
+frames_per_seq = 16
+train_frame_range = list(range(frames_per_seq, 3500  + 1)) + list(range(4000 + frames_per_seq, total_frames_each_run + 1))
+val_frame_range = range(3500 + frames_per_seq, 4000  + 1)
+test_frame_range = range(frames_per_seq, total_frames_each_run + 1)
+
+# resized size
+w = 256
+h = 256
+# dis_R_thres = 0.1
 
 # glimpse network params
 glimpse_arg = add_argument_group('Glimpse Network Params')
-glimpse_arg.add_argument('--patch_size', type=int, default=8,
+glimpse_arg.add_argument('--patch_size', type=int, default=64,
                          help='size of extracted patch at highest res')
 glimpse_arg.add_argument('--glimpse_scale', type=int, default=2,
                          help='scale of successive patches')
@@ -30,8 +48,9 @@ glimpse_arg.add_argument('--glimpse_hidden', type=int, default=128,
 
 # core network params
 core_arg = add_argument_group('Core Network Params')
-core_arg.add_argument('--num_glimpses', type=int, default=6,
+core_arg.add_argument('--num_glimpses', type=int, default=16,
                       help='# of glimpses, i.e. BPTT iterations')
+
 core_arg.add_argument('--hidden_size', type=int, default=256,
                       help='hidden size of rnn')
 
@@ -40,8 +59,10 @@ core_arg.add_argument('--hidden_size', type=int, default=256,
 reinforce_arg = add_argument_group('Reinforce Params')
 reinforce_arg.add_argument('--std', type=float, default=0.17,
                            help='gaussian policy standard deviation')
-reinforce_arg.add_argument('--M', type=float, default=10,
+reinforce_arg.add_argument('--M', type=float, default=1,
                            help='Monte Carlo sampling for valid and test sets')
+reinforce_arg.add_argument('--dis_R_thres', type=float, default=0.1,
+                           help='distance thread hold for Reward')
 
 
 # data params
@@ -76,7 +97,7 @@ train_arg.add_argument('--train_patience', type=int, default=50,
 
 # other params
 misc_arg = add_argument_group('Misc.')
-misc_arg.add_argument('--use_gpu', type=str2bool, default=False,
+misc_arg.add_argument('--use_gpu', type=str2bool, default=True,
                       help="Whether to run on the GPU")
 misc_arg.add_argument('--best', type=str2bool, default=True,
                       help='Load best model or most recent for testing')

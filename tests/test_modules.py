@@ -3,9 +3,8 @@ sys.path.append("..")
 
 import torch
 from torch.autograd import Variable
-from torch.distributions import Normal
 
-from utils import img2array
+from utils.utils import img2array
 from modules import baseline_network
 from modules import glimpse_network, core_network
 from modules import action_network, location_network
