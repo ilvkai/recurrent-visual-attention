@@ -46,6 +46,15 @@ class Dreyeve(data_utl.Dataset):
         self.mean_imgae_256 = read_image(os.path.join(dreyeve_dir, 'dreyeve_mean_frame.png'),
                                                 channels_first=True, resize_dim=(w,h))
         self.load_mode = 1
+        pathSpeedsCouse = osp.join('data_prepare', 'speed_and_course.txt')
+        self.dfSpeedsCourses = self.read_speeds_and_courses(pathSpeedsCouse)
+
+    def read_speeds_and_courses(self, pathFile):
+        colnames = ['seq', 'frame', 'speed', 'course']
+        df = pd.read_csv(pathFile, sep=' ', names=colnames, header=None)
+        # print('test')
+        # df[(df['seq'] == 1) & (df['frame'] == 1)].iloc[0]['course']
+        return df
 
     def make_dreye_dataset(self, sequences, allowed_frames):
         """
@@ -75,11 +84,13 @@ class Dreyeve(data_utl.Dataset):
         ptLastFrame = read_image(path_last_frame, channels_first=True, resize_dim=(w,h))
 
         loc = self.get_mean_loc(indexSequence, frameEnd)
+        speeds, courses = self.get_speed_and_course(indexSequence, frameEnd)
 
 
         # return torch.from_numpy(imgs_resize),  torch.from_numpy(ptLastFrame), \
         #        torch.from_numpy(fix_h_w)
         return torch.from_numpy(imgs_resize),  torch.from_numpy(fix_h_w), torch.from_numpy(loc),\
+               torch.from_numpy(speeds), torch.from_numpy(courses), \
                indexSequence, frameEnd
 
     def __len__(self):
@@ -113,29 +124,65 @@ class Dreyeve(data_utl.Dataset):
         # pt_loc = (int(loc[0]), int(loc[1]))
         return loc
 
-    def get_speed_and_course(self, indexSeq, indexFrame, duration = 50):
+    # def get_speed_and_course(self, indexSeq, indexFrame, duration = 16, course_duration = 50):
+    #     # course ranges from -1 to 1. If the course is positive, it means the car is turning right.
+    #     # course = orientation[now]- orientation[now - course_duration] and course_duration=50 means 50 frames.
+    #
+    #     # get speed and course for 50 frames
+    #     # if less than 50, the first several frames' speed and course equal the ones in first frame
+    #     pathFile = osp.join(dreyeve_dir, '{:02d}'.format(indexSeq), 'speed_course_coord.txt')
+    #     colnames = ['frame', 'speed', 'course', 'lat', 'lon', 'no-meaning']
+    #     df = pd.read_csv(pathFile, sep='\t', names=colnames, header=None)
+    #     # print(df.iloc[indexFrame + 1]['speed'])
+    #
+    #     speeds = np.zeros([duration],dtype=np.float32)
+    #     for indexDur in range(duration):
+    #         if indexFrame -1 - duration +1 + indexDur>=0:
+    #             speeds[indexDur] = df.iloc[indexFrame -1 - duration +1 + indexDur]['speed']/100
+    #         else:
+    #             speeds[indexDur] = df.iloc[0]['speed'] /100
+    #
+    #     courses = np.zeros([duration], dtype = np.float32)
+    #     for indexCou in range(duration):
+    #         OrientationNow = df.iloc[indexFrame -1 - duration + 1 + indexCou]['course']
+    #         if indexFrame -1 - duration + 1 + indexCou - 50 >= 0:
+    #             OrientationPrevious = df.iloc[indexFrame -1 - duration + 1 + indexCou - course_duration]['course']
+    #         else:
+    #             OrientationPrevious = df.iloc[0]['course']
+    #
+    #         if abs(OrientationNow - OrientationPrevious) < 180:
+    #             courses[indexCou] = (OrientationNow - OrientationPrevious) / 40
+    #         elif OrientationNow > OrientationPrevious:
+    #             courses[indexCou] = (OrientationNow - (OrientationPrevious + 360)) / 40
+    #         elif OrientationNow < OrientationPrevious:
+    #             courses[indexCou] = (OrientationNow + 360 - OrientationPrevious) / 40
+    #
+    #         if courses[indexCou] > 1.5 and courses[indexCou]<4:
+    #             courses[indexCou] = 0
+    #
+    #         courses[indexCou] = self.get_mean_loc(indexSeq, indexFrame - duration +1 + indexCou)[0, 1] / 2
+    #
+    #     return speeds, courses
+    def get_speed_and_course(self, indexSeq, indexFrame, duration = 16, course_duration = 50):
+        # course ranges from -1 to 1. If the course is positive, it means the car is turning right.
+        # course = orientation[now]- orientation[now - course_duration] and course_duration=50 means 50 frames.
+
         # get speed and course for 50 frames
         # if less than 50, the first several frames' speed and course equal the ones in first frame
-        pathFile = osp.join(self.root, '{:02d}'.format(indexSeq), 'speed_course_coord.txt')
-        colnames = ['frame', 'speed', 'course', 'lat', 'lon', 'no-meaning']
-        df = pd.read_csv(pathFile, sep='\t', names=colnames, header=None)
+
+        # df[(df['seq'] == 1) & (df['frame'] == 1)].iloc[0]['course']
         # print(df.iloc[indexFrame + 1]['speed'])
-
         speeds = np.zeros([duration],dtype=np.float32)
+        courses = np.zeros([duration], dtype=np.float32)
         for indexDur in range(duration):
-            if indexFrame - 1 - indexDur>=0:
-                speeds[indexDur] = df.iloc[indexFrame - 1 - indexDur]['speed']/100
+            if indexFrame  - duration +1 + indexDur>=1:
+                speeds[indexDur] = self.dfSpeedsCourses[(self.dfSpeedsCourses['seq'] == indexSeq) & (self.dfSpeedsCourses['frame'] == indexFrame - duration +1 + indexDur)].iloc[0]['speed']
+                courses[indexDur] = self.dfSpeedsCourses[(self.dfSpeedsCourses['seq'] == indexSeq) & (self.dfSpeedsCourses['frame'] == indexFrame - duration +1 + indexDur)].iloc[0]['course']
             else:
-                speeds[indexDur] = df.iloc[0]['speed'] /100
+                speeds[indexDur] = self.dfSpeedsCourses[(self.dfSpeedsCourses['seq'] == indexSeq) & (self.dfSpeedsCourses['frame'] == 1)].iloc[0]['speed']
+                courses[indexDur] = self.dfSpeedsCourses[(self.dfSpeedsCourses['seq'] == indexSeq) & (self.dfSpeedsCourses['frame'] == 1)].iloc[0]['course']
 
-        courses = np.zeros([duration], dtype = np.float32)
-        for indexCou in range(duration):
-            if indexFrame - 1 - indexDur >= 0:
-                courses[indexCou] = df.iloc[indexFrame - 1 - indexCou]['course']/360
-            else:
-                courses[indexCou] = df.iloc[0]['course']/360
 
-        courses = courses - courses[-1]
         return speeds, courses
 
 

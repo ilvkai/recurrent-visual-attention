@@ -125,7 +125,8 @@ class Trainer(object):
         )
         if self.use_gpu:
             self.model.cuda()
-        self.model.sensor.feature_extractor.eval()
+        # train resnet or not
+        # self.model.sensor.feature_extractor.eval()
 
         print('[*] Number of model parameters: {:,}'.format(
             sum([p.data.nelement() for p in self.model.parameters()])))
@@ -232,20 +233,22 @@ class Trainer(object):
         batch_time = AverageMeter()
         losses = AverageMeter()
         accs = AverageMeter()
-        countTotal =10
+
+        losses_action = AverageMeter()
+        # countTotal =10
 
         tic = time.time()
-        count=1
+        count=0
         with tqdm(total=self.num_train) as pbar:
-            for i, (x, fixation, y, indexSeq, frameEnd) in enumerate(self.train_loader):
-                if count > countTotal:
-                    return losses.avg, accs.avg
+            for i, (x, fixation, y, speeds, courses, indexSeq, frameEnd) in enumerate(self.train_loader):
+                # if count > countTotal:
+                #     return losses.avg, accs.avg
                 count = count + 1
                 y= y.squeeze().float()
 
                 if self.use_gpu:
-                    x, y = x.cuda(), y.cuda()
-                x, y = Variable(x), Variable(y)
+                    x, y, speeds, courses = x.cuda(), y.cuda(), speeds.cuda(), courses.cuda()
+                x, y, speeds, courses = Variable(x), Variable(y), Variable(speeds), Variable(courses)
 
                 plot = False
                 if (epoch % self.plot_freq == 0) and (i == 0):
@@ -265,7 +268,7 @@ class Trainer(object):
                 baselines = []
                 for t in range(self.num_glimpses - 1):
                     # forward pass through model
-                    h_t, l_t, b_t, p = self.model(x, l_t, h_t, t)
+                    h_t, l_t, b_t, p = self.model(x, speeds, courses, l_t, h_t, t)
 
                     # store
                     locs.append(l_t[0:9])
@@ -274,7 +277,7 @@ class Trainer(object):
 
                 # last iteration
                 h_t, l_t, b_t, l_t_final, p = self.model(
-                    x, l_t, h_t, self.num_glimpses-1, last=True
+                    x, speeds, courses, l_t, h_t, self.num_glimpses-1, last=True
                 )
                 log_pi.append(p)
                 baselines.append(b_t)
@@ -296,7 +299,7 @@ class Trainer(object):
                     # temp= distance < self.dis_R_thres
                     # R[index] = 1.4 - distance
                 # R = locs
-                sum_R = torch.sum(R)
+                mean_R = torch.mean(R)
                 R = R.unsqueeze(1).repeat(1, self.num_glimpses).to(self.device)
 
                 # compute losses for differentiable modules
@@ -311,7 +314,7 @@ class Trainer(object):
                 loss_reinforce = torch.mean(loss_reinforce, dim=0)
 
                 # sum up into a hybrid loss
-                loss = loss_action*100 + loss_baseline + loss_reinforce
+                loss = loss_action * 10 + loss_baseline *10 + loss_reinforce
                 # loss =  loss_baseline + loss_reinforce
 
                 # compute accuracy
@@ -322,6 +325,7 @@ class Trainer(object):
                 # store
                 losses.update(loss.data, x.size()[0])
                 accs.update(dist.data, x.size()[0])
+                losses_action.update(loss_action.data, x.size()[0])
 
                 # compute gradients and update SGD
                 self.optimizer.zero_grad()
@@ -332,14 +336,19 @@ class Trainer(object):
                 toc = time.time()
                 batch_time.update(toc-tic)
 
-                pbar.set_description(
-                    (
-                        "{:.1f}s - loss: {:.3f} - dis: {:.3f} - sum_R : {}".format(
-                            (toc-tic), loss.data, dist.data, sum_R
-                        )
-                    )
-                )
-                pbar.update(self.batch_size)
+                print("Epoch: {} - {}/{} - {:.1f}s - loss: {:.3f} - dis: {:.3f} - loss_action : {:.3f} "
+                      "- mean_R : {:.3f} - mean-baseline: {:.3f} - mean_adjusted_reward: {:.3f} - courseMax: {:.3f}"
+                      .format(epoch, count, len(self.train_loader), (toc-tic), loss.data, dist.data, loss_action.data,
+                              mean_R, torch.mean(baselines.data), torch.mean(adjusted_reward.data), torch.max(courses)))
+
+                # pbar.set_description(
+                #     (
+                #         "{:.1f}s - loss: {:.3f} - dis: {:.3f} - sum_R : {} - loss_action : {:.3f}".format(
+                #             (toc-tic), loss.data, dist.data, sum_R, loss_action.data
+                #         )
+                #     )
+                # )
+                # pbar.update(self.batch_size)
 
                 # dump the glimpses and locs
                 if plot:
@@ -384,7 +393,7 @@ class Trainer(object):
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
-        for i, (x, fixs, y, indexSeq, frameEnd) in enumerate(self.valid_loader):
+        for i, (x, fixs, y, speeds, courses, indexSeq, frameEnd) in enumerate(self.valid_loader):
             y = y.squeeze().float()
 
             if count > countTotal:
@@ -392,11 +401,12 @@ class Trainer(object):
             count = count + 1
 
             if self.use_gpu:
-                x, y = x.cuda(), y.cuda()
-            x, y = Variable(x), Variable(y)
+                x, y, speeds, courses = x.cuda(), y.cuda(), speeds.cuda(), courses.cuda()
+            x, y, speeds, courses = Variable(x), Variable(y), Variable(speeds), Variable(courses)
 
             # duplicate 10 times
             x = x.repeat(self.M,1, 1, 1, 1)
+            # speeds = speeds.repeat(self.M, 1,1,)
 
             # initialize location vector and hidden state
             self.batch_size = x.shape[0]
@@ -407,7 +417,7 @@ class Trainer(object):
             baselines = []
             for t in range(self.num_glimpses - 1):
                 # forward pass through model
-                h_t, l_t, b_t, p = self.model(x, l_t, h_t, t)
+                h_t, l_t, b_t, p = self.model(x,speeds, courses, l_t, h_t, t)
 
                 # store
                 baselines.append(b_t)
@@ -415,7 +425,7 @@ class Trainer(object):
 
             # last iteration
             h_t, l_t, b_t, l_t_final, p = self.model(
-                x, l_t, h_t, self.num_glimpses-1, last=True
+                x, speeds, courses, l_t, h_t, self.num_glimpses-1, last=True
             )
             log_pi.append(p)
             baselines.append(b_t)

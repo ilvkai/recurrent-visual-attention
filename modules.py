@@ -224,7 +224,10 @@ class glimpse_network(nn.Module):
     def forward(self, x, l_t_prev, frame_index):
         # generate glimpse phi from image x
         phi = self.retina.foveate(x, l_t_prev, frame_index)
-        phi = self.feature_extractor(phi).detach()
+
+        # train resnet or not
+        # phi = self.feature_extractor(phi).detach()
+        phi = self.feature_extractor(phi)
         phi = phi.view(phi.size(0), -1)
 
         # flatten location vector

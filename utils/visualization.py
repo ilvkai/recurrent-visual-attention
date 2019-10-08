@@ -60,7 +60,7 @@ def blend_map_with_focus_rectangle(img, map, loc, scale=0.3, factor=0.5, color= 
     pt2 = (int(np.min([blend.shape[1]-1, centerLoc[1] + shortSideLen/2])), int(np.min([blend.shape[0]-1, centerLoc[0] + shortSideLen/2])))
 
     # color  = (255, 0, 0)
-    thickness = 2
+    thickness = 4
 
     blend = cv2.rectangle(blend, pt1, pt2, color, thickness)
 

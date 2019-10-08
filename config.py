@@ -87,7 +87,7 @@ train_arg.add_argument('--momentum', type=float, default=0.5,
                        help='Nesterov momentum value')
 train_arg.add_argument('--epochs', type=int, default=200,
                        help='# of epochs to train for')
-train_arg.add_argument('--init_lr', type=float, default=3e-4,
+train_arg.add_argument('--init_lr', type=float, default=3e-2,
                        help='Initial learning rate value')
 train_arg.add_argument('--lr_patience', type=int, default=10,
                        help='Number of epochs to wait before reducing lr')

@@ -1,4 +1,5 @@
 import torch
+import sys
 
 from trainer import Trainer
 from config import get_config
@@ -6,11 +7,17 @@ from utils.utils import prepare_dirs, save_config
 from data_loader import get_test_loader, get_train_valid_loader
 from dataset.dreyeve_seq import Dreyeve as Dataset
 
+from utils.logging import Logger
+import os.path as osp
 
 def main(config):
 
     # ensure directories are setup
     prepare_dirs(config)
+
+    # logging
+    if config.logs_dir:
+        sys.stdout = Logger(osp.join(config.logs_dir, 'log.txt'))
 
     # ensure reproducibility
     torch.manual_seed(config.random_seed)
@@ -24,7 +31,7 @@ def main(config):
                                                pin_memory=True)
 
     test_dataset = Dataset('test')
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=12,
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=12,
                                                  pin_memory=True)
 
 
