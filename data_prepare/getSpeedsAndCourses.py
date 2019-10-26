@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # pool.map(get_speed_and_course_new, indexRange)
 
     # concatenate files
-    filenames = ['file1.txt', 'file2.txt', ...]
+
     with open('test.txt', 'w') as outfile:
         for indexSeq in range(1,75):
             print('concatenating seq {:02d}'.format(indexSeq))

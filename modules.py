@@ -244,6 +244,16 @@ class glimpse_network(nn.Module):
         g_t = F.relu(what + where)
 
         return g_t
+#
+class speed_course_network(nn.Module):
+    def __init__(self, D_in, D_out):
+        super(speed_course_network, self).__init__()
+        self.fc1 = nn.Linear(D_in, D_out)
+
+    def forward(self, speed_and_course):
+        speed_and_course = self.fc1(speed_and_course)
+
+        return speed_and_course
 
 
 class core_network(nn.Module):
@@ -374,6 +384,27 @@ class location_network(nn.Module):
         l_t = F.tanh(l_t)
 
         return mu, l_t
+
+class scale_network(nn.Module):
+    """
+    Uses the internal state `h_t` of the core network to
+    produce the scale `s`
+
+    Concretely, feeds the hidden state `h_t` through a fc
+    layer followed by a tanh to clamp the output beween
+    [0, 1]. This produces a 1D vector of distance
+
+    """
+    def __init__(self, input_size, output_size, std):
+        super(scale_network, self).__init__()
+        self.std = std
+        self.fc = nn.Linear(input_size, output_size)
+
+    def forward(self, h_t):
+        # compute mean
+        mu = F.sigmoid(self.fc(h_t.detach()))
+
+        return mu
 
 
 class baseline_network(nn.Module):

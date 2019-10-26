@@ -7,7 +7,7 @@ from torch.distributions import Normal
 
 from modules import baseline_network
 from modules import glimpse_network, core_network
-from modules import action_network, location_network
+from modules import action_network, location_network, speed_course_network, scale_network
 
 
 class RecurrentAttention(nn.Module):
@@ -57,9 +57,11 @@ class RecurrentAttention(nn.Module):
         self.std = std
 
         self.sensor = glimpse_network(h_g, h_l, g, k, s, c)
-        self.rnn = core_network(hidden_size+2, hidden_size)
+        self.speed_course_network = speed_course_network(2, 256)
+        self.rnn = core_network(hidden_size+256, hidden_size)
         self.locator = location_network(hidden_size, 2, std)
         self.locator_final = location_network(hidden_size, 2, std)
+        self.scaler_final = scale_network(hidden_size, 1, std)
         self.classifier = action_network(hidden_size, num_classes)
         self.baseliner = baseline_network(hidden_size, 1)
 
@@ -102,7 +104,11 @@ class RecurrentAttention(nn.Module):
         g_t = self.sensor(x, l_t_prev, frame_index)
         speed = speeds[:, frame_index].view(g_t.shape[0], -1)
         course = courses[:, frame_index].view(g_t.shape[0], -1)
-        g_t = torch.cat((g_t, speed, course), 1)
+        speed_course = torch.cat((speed, course), 1)
+        speed_course = self.speed_course_network(speed_course)
+
+
+        g_t = torch.cat((g_t, speed_course), 1)
         h_t = self.rnn(g_t, h_t_prev)
         mu, l_t = self.locator(h_t)
         b_t = self.baseliner(h_t).squeeze()
@@ -118,6 +124,7 @@ class RecurrentAttention(nn.Module):
         #     return h_t, l_t, b_t, log_probas, log_pi
         if last:
             l_t_final, l_t_final_noise = self.locator_final(h_t)
-            return h_t, l_t, b_t, l_t_final, log_pi
+            scale = self.scaler_final(h_t)
+            return h_t, l_t, b_t, l_t_final, log_pi, scale
 
         return h_t, l_t, b_t, log_pi

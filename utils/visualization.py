@@ -26,7 +26,7 @@ def blend_map(img, map, factor=0.5, colormap=cv2.COLORMAP_JET):
 
     return blend
 
-def blend_map_with_focus_rectangle(img, map, loc, scale=0.3, factor=0.5, color= (255, 0, 0), colormap=cv2.COLORMAP_JET):
+def blend_map_with_focus_rectangle(img, map, loc, scale=0.3, factor=0.5,  color= (255, 0, 0), colormap=cv2.COLORMAP_JET):
     """
         Function to blend an image and a probability map with rectangle.
 
@@ -40,6 +40,7 @@ def blend_map_with_focus_rectangle(img, map, loc, scale=0.3, factor=0.5, color= 
         """
 
     assert 0 < factor < 1, 'factor must satisfy 0 < factor < 1'
+    scale = scale *6
 
     map = np.float32(map)
     map /= map.max()
@@ -55,9 +56,10 @@ def blend_map_with_focus_rectangle(img, map, loc, scale=0.3, factor=0.5, color= 
     # draw location and rectangle
     # notice that blend.shape is (h, w, c)
     centerLoc = 0.5* (loc+1.0)* blend.shape[0:2]
-    shortSideLen = np.min([blend.shape[0],blend.shape[1]]) * scale
-    pt1 = (int(np.max([0, centerLoc[1] - shortSideLen /2])), int(np.max([0, centerLoc[0] - shortSideLen /2])) )
-    pt2 = (int(np.min([blend.shape[1]-1, centerLoc[1] + shortSideLen/2])), int(np.min([blend.shape[0]-1, centerLoc[0] + shortSideLen/2])))
+    # shortSideLen = np.min([blend.shape[0],blend.shape[1]]) * scale
+    sideLen = blend.shape[0:2]* scale
+    pt1 = (int(np.max([0, centerLoc[1] - sideLen[1] /2])), int(np.max([0, centerLoc[0] - sideLen[0] /2])) )
+    pt2 = (int(np.min([blend.shape[1]-1, centerLoc[1] + sideLen[1] /2])), int(np.min([blend.shape[0]-1, centerLoc[0] + sideLen[0] /2])))
 
     # color  = (255, 0, 0)
     thickness = 4

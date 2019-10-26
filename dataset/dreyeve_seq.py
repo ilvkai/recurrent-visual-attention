@@ -48,9 +48,28 @@ class Dreyeve(data_utl.Dataset):
         self.load_mode = 1
         pathSpeedsCouse = osp.join('data_prepare', 'speed_and_course.txt')
         self.dfSpeedsCourses = self.read_speeds_and_courses(pathSpeedsCouse)
+        pathLoc = osp.join('data_prepare', 'locations.txt')
+        self.dfLocations = self.read_locations(pathLoc)
+
+        # focus of view scale
+        pathDistance = osp.join('data_prepare', 'scales.txt')
+        self.dfScale = self.read_scale(pathDistance)
+
 
     def read_speeds_and_courses(self, pathFile):
         colnames = ['seq', 'frame', 'speed', 'course']
+        df = pd.read_csv(pathFile, sep=' ', names=colnames, header=None)
+        # print('test')
+        # df[(df['seq'] == 1) & (df['frame'] == 1)].iloc[0]['course']
+        return df
+    def read_locations(self, pathFile):
+        colnames = ['seq', 'frame', 'h', 'w']
+        df = pd.read_csv(pathFile, sep=' ', names=colnames, header=None)
+        # print('test')
+        # df[(df['seq'] == 1) & (df['frame'] == 1)].iloc[0]['course']
+        return df
+    def read_scale(self, pathFile):
+        colnames = ['seq', 'frame', 'scale']
         df = pd.read_csv(pathFile, sep=' ', names=colnames, header=None)
         # print('test')
         # df[(df['seq'] == 1) & (df['frame'] == 1)].iloc[0]['course']
@@ -79,18 +98,24 @@ class Dreyeve(data_utl.Dataset):
         imgs_resize, fix_h_w = self.load_frames(indexSequence, frameBegin, frameEnd)
 
         # last_frame =
-        path_last_frame = os.path.join(dreyeve_dir, '{:02d}'.format(indexSequence), 'frames',
-                                       '{:06d}.jpg'.format(frameEnd))
-        ptLastFrame = read_image(path_last_frame, channels_first=True, resize_dim=(w,h))
+        # path_last_frame = os.path.join(dreyeve_dir, '{:02d}'.format(indexSequence), 'frames',
+        #                                '{:06d}.jpg'.format(frameEnd))
+        # ptLastFrame = read_image(path_last_frame, channels_first=True, resize_dim=(w,h))
 
-        loc = self.get_mean_loc(indexSequence, frameEnd)
+        # loc = self.get_mean_loc(indexSequence, frameEnd)
+        loc = np.zeros((1, 2))
+        loc[0,0] = self.dfLocations[(self.dfLocations['seq'] == indexSequence) & (self.dfLocations['frame'] == frameEnd)].iloc[0]['h']
+        loc[0,1] = self.dfLocations[(self.dfLocations['seq'] == indexSequence) & (self.dfLocations['frame'] == frameEnd)].iloc[0]['w']
         speeds, courses = self.get_speed_and_course(indexSequence, frameEnd)
+
+        scale = np.zeros(1, dtype=np.float32)
+        scale[0] = self.dfScale[(self.dfScale['seq'] == indexSequence) & (self.dfScale['frame'] == frameEnd)].iloc[0]['scale']
 
 
         # return torch.from_numpy(imgs_resize),  torch.from_numpy(ptLastFrame), \
         #        torch.from_numpy(fix_h_w)
         return torch.from_numpy(imgs_resize),  torch.from_numpy(fix_h_w), torch.from_numpy(loc),\
-               torch.from_numpy(speeds), torch.from_numpy(courses), \
+               torch.from_numpy(speeds), torch.from_numpy(courses), torch.from_numpy(scale), \
                indexSequence, frameEnd
 
     def __len__(self):

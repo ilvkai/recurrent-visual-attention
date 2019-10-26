@@ -76,7 +76,7 @@ class Trainer(object):
             self.num_train = len(self.train_loader)*config.batch_size
             self.num_valid = len(self.valid_loader)*config.batch_size
         else:
-            self.test_loader = data_loader
+            self.test_loader = data_loader[1]
             self.num_test = len(self.test_loader.dataset)
         self.num_classes = 10
         self.num_channels = 3
@@ -235,20 +235,20 @@ class Trainer(object):
         accs = AverageMeter()
 
         losses_action = AverageMeter()
-        # countTotal =10
+        countTotal = 1000
 
         tic = time.time()
         count=0
         with tqdm(total=self.num_train) as pbar:
-            for i, (x, fixation, y, speeds, courses, indexSeq, frameEnd) in enumerate(self.train_loader):
-                # if count > countTotal:
-                #     return losses.avg, accs.avg
+            for i, (x, fixation, y, speeds, courses, scale_gt, indexSeq, frameEnd) in enumerate(self.train_loader):
+                if count > countTotal:
+                    return losses.avg, accs.avg
                 count = count + 1
                 y= y.squeeze().float()
 
                 if self.use_gpu:
-                    x, y, speeds, courses = x.cuda(), y.cuda(), speeds.cuda(), courses.cuda()
-                x, y, speeds, courses = Variable(x), Variable(y), Variable(speeds), Variable(courses)
+                    x, y, speeds, courses, scale_gt = x.cuda(), y.cuda(), speeds.cuda(), courses.cuda(), scale_gt.cuda()
+                x, y, speeds, courses, scale_gt = Variable(x), Variable(y), Variable(speeds), Variable(courses), Variable(scale_gt)
 
                 plot = False
                 if (epoch % self.plot_freq == 0) and (i == 0):
@@ -276,7 +276,7 @@ class Trainer(object):
                     log_pi.append(p)
 
                 # last iteration
-                h_t, l_t, b_t, l_t_final, p = self.model(
+                h_t, l_t, b_t, l_t_final, p, scale = self.model(
                     x, speeds, courses, l_t, h_t, self.num_glimpses-1, last=True
                 )
                 log_pi.append(p)
@@ -295,9 +295,9 @@ class Trainer(object):
                 for index in range(y.shape[0]):
                     # get the distance of two locations
                     distance = torch.sqrt(torch.pow(l_t_final[index,0]-y[index,0], 2) + torch.pow(l_t_final[index,1]-y[index,1], 2)).float()
-                    R[index] = distance < self.dis_R_thres
+                    # R[index] = distance < self.dis_R_thres
                     # temp= distance < self.dis_R_thres
-                    # R[index] = 1.4 - distance
+                    R[index] = 1 - distance
                 # R = locs
                 mean_R = torch.mean(R)
                 R = R.unsqueeze(1).repeat(1, self.num_glimpses).to(self.device)
@@ -305,6 +305,9 @@ class Trainer(object):
                 # compute losses for differentiable modules
                 # loss_action = F.nll_loss(log_probas, y)
                 loss_action = F.mse_loss(l_t_final, y)
+                loss_scale = F.mse_loss(scale, scale_gt)
+                # if loss_action.data > 1:
+                #     print('loss_action > 1 and l_t_final = {} y = {}'.format(l_t_final.data, y.data))
                 loss_baseline = F.mse_loss(baselines, R)
 
                 # compute reinforce loss
@@ -314,7 +317,7 @@ class Trainer(object):
                 loss_reinforce = torch.mean(loss_reinforce, dim=0)
 
                 # sum up into a hybrid loss
-                loss = loss_action * 10 + loss_baseline *10 + loss_reinforce
+                loss = loss_action * 10 + loss_baseline *10 + loss_reinforce + loss_scale
                 # loss =  loss_baseline + loss_reinforce
 
                 # compute accuracy
@@ -336,10 +339,10 @@ class Trainer(object):
                 toc = time.time()
                 batch_time.update(toc-tic)
 
-                print("Epoch: {} - {}/{} - {:.1f}s - loss: {:.3f} - dis: {:.3f} - loss_action : {:.3f} "
-                      "- mean_R : {:.3f} - mean-baseline: {:.3f} - mean_adjusted_reward: {:.3f} - courseMax: {:.3f}"
-                      .format(epoch, count, len(self.train_loader), (toc-tic), loss.data, dist.data, loss_action.data,
-                              mean_R, torch.mean(baselines.data), torch.mean(adjusted_reward.data), torch.max(courses)))
+                print("Epoch: {} - {}/{} - {:.1f}s - loss: {:.3f} - dis: {:.3f} - loss_action : {:.3f} - loss_scale: {:.3f} "
+                      "- mean_R : {:.3f} - mean-baseline: {:.3f} - mean_adjusted_reward: {:.3f} "
+                      .format(epoch, count, countTotal, (toc-tic), loss.data, dist.data, loss_action.data, loss_scale.data,
+                              mean_R, torch.mean(baselines.data), torch.mean(adjusted_reward.data)))
 
                 # pbar.set_description(
                 #     (
@@ -393,7 +396,7 @@ class Trainer(object):
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
-        for i, (x, fixs, y, speeds, courses, indexSeq, frameEnd) in enumerate(self.valid_loader):
+        for i, (x, fixs, y, speeds, courses, scale_gt, indexSeq, frameEnd) in enumerate(self.valid_loader):
             y = y.squeeze().float()
 
             if count > countTotal:
@@ -424,7 +427,7 @@ class Trainer(object):
                 log_pi.append(p)
 
             # last iteration
-            h_t, l_t, b_t, l_t_final, p = self.model(
+            h_t, l_t, b_t, l_t_final, p, scale = self.model(
                 x, speeds, courses, l_t, h_t, self.num_glimpses-1, last=True
             )
             log_pi.append(p)
@@ -455,18 +458,21 @@ class Trainer(object):
                     # map = fixs[indexBlend, :,:].cpu().numpy()
                     loc = l_t_final[indexBlend, :].cpu().detach().numpy()
                     loc_gt = y[indexBlend].cpu().numpy()
+                    scale_blend = scale[indexBlend].cpu().detach().numpy()
+                    scale_gt_blend = scale_gt[indexBlend].cpu().detach().numpy()
                     # blend = blend_map_with_focus_circle
                     # loc= np.array([0,0])
 
                     # draw target
-                    blend = blend_map_with_focus_rectangle(img, map, loc, color= (0, 0, 255))
+                    blend = blend_map_with_focus_rectangle(img, map, loc, scale=scale_blend, color= (0, 0, 255))
                     #draw gt
                     if not (np.isnan(loc_gt[0]) or np.isnan(loc_gt[1])):
                         # loc_gt[0]=-0.9
                         # loc_gt[1]=0.2
-                        blend = blend_map_with_focus_rectangle(blend, map, loc_gt, color=(0, 255, 0))
+                        blend = blend_map_with_focus_rectangle(blend, map, loc_gt, scale = scale_gt_blend, color=(0, 255, 0))
                         # blend = blend_map_with_focus_circle(img, map, loc_gt, color=(0, 255, 0))
 
+                    print('scale is {:.3f} and scale_gt is {:.3f}'.format(float(scale_blend), float(scale_gt_blend)))
                     cv2.imwrite(os.path.join(save_dir, '{:06d}.jpg'.format(frameEnd[indexBlend])), blend)
 
             baselines = baselines.contiguous().view(
@@ -534,47 +540,109 @@ class Trainer(object):
         This function should only be called at the very
         end once the model has finished training.
         """
-        correct = 0
+        is_output = 1
+        if is_output:
+            f = open('output.txt', 'w')
 
         # load the best checkpoint
         self.load_checkpoint(best=self.best)
 
-        for i, (x, y) in enumerate(self.test_loader):
+        for i, (x, fixs, y, speeds, courses, scale_gt, indexSeq, frameEnd) in enumerate(self.test_loader):
+            y = y.squeeze().float()
+
             if self.use_gpu:
-                x, y = x.cuda(), y.cuda()
-            x, y = Variable(x, volatile=True), Variable(y)
+                x, y, speeds, courses = x.cuda(), y.cuda(), speeds.cuda(), courses.cuda()
+            x, y, speeds, courses = Variable(x), Variable(y), Variable(speeds), Variable(courses)
 
             # duplicate 10 times
-            x = x.repeat(self.M, 1, 1, 1)
+            x = x.repeat(self.M, 1, 1, 1, 1)
+            # speeds = speeds.repeat(self.M, 1,1,)
 
             # initialize location vector and hidden state
             self.batch_size = x.shape[0]
             h_t, l_t = self.reset()
 
             # extract the glimpses
+            log_pi = []
+            baselines = []
             for t in range(self.num_glimpses - 1):
                 # forward pass through model
-                h_t, l_t, b_t, p = self.model(x, l_t, h_t)
+                h_t, l_t, b_t, p = self.model(x, speeds, courses, l_t, h_t, t)
+
+                # store
+                baselines.append(b_t)
+                log_pi.append(p)
 
             # last iteration
-            h_t, l_t, b_t, log_probas, p = self.model(
-                x, l_t, h_t, last=True
+            h_t, l_t, b_t, l_t_final, p, scale = self.model(
+                x, speeds, courses, l_t, h_t, self.num_glimpses - 1, last=True
             )
+            log_pi.append(p)
+            baselines.append(b_t)
 
-            log_probas = log_probas.view(
-                self.M, -1, log_probas.shape[-1]
+            # convert list to tensors and reshape
+            baselines = torch.stack(baselines).transpose(1, 0)
+            log_pi = torch.stack(log_pi).transpose(1, 0)
+
+            # average
+            l_t_final = l_t_final.view(
+                self.M, -1, l_t_final.shape[-1]
             )
-            log_probas = torch.mean(log_probas, dim=0)
+            l_t_final = torch.mean(l_t_final, dim=0)
 
-            pred = log_probas.data.max(1, keepdim=True)[1]
-            correct += pred.eq(y.data.view_as(pred)).cpu().sum()
+            if is_output:
+                for indexBlend in range(x.shape[0]):
+                    loc = l_t_final[indexBlend, :].cpu().detach().numpy()
+                    loc_gt = y[indexBlend].cpu().numpy()
+                    scale_blend = scale[indexBlend].cpu().detach().numpy()
+                    scale_gt_blend = scale_gt[indexBlend].cpu().detach().numpy()
 
-        perc = (100. * correct) / (self.num_test)
-        error = 100 - perc
-        print(
-            '[*] Test Acc: {}/{} ({:.2f}% - {:.2f}%)'.format(
-                correct, self.num_test, perc, error)
-        )
+                    line = '{:02} {:04d} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n'\
+                        .format(indexSeq[indexBlend], frameEnd[indexBlend], loc_gt[0], loc_gt[1], loc[0], loc[1], float(scale_gt_blend), float(scale_blend))
+                    print('seq: {:02}- frame: {:04d} - loc_gt_h: {:.3f} - loc_gt_w: {:.3f} - loc_h: {:.3f} - loc_w: {:.3f} '
+                          '- scale_gt: {:.3f}- scale: {:.3f}'\
+                        .format(indexSeq[indexBlend], frameEnd[indexBlend], loc_gt[0], loc_gt[1], loc[0], loc[1], float(scale_gt_blend), float(scale_blend)))
+                    f.writelines(line)
+
+            baselines = baselines.contiguous().view(
+                self.M, -1, baselines.shape[-1]
+            )
+            baselines = torch.mean(baselines, dim=0)
+
+            log_pi = log_pi.contiguous().view(
+                self.M, -1, log_pi.shape[-1]
+            )
+            log_pi = torch.mean(log_pi, dim=0)
+
+            dis = 0
+            R = torch.zeros(y.shape[0])
+            for index in range(y.shape[0]):
+                # get the distance of two locations
+                distance = torch.sqrt(
+                    torch.pow(l_t_final[index, 0] - y[index, 0], 2) + torch.pow(l_t_final[index, 1] - y[index, 1], 2))
+                dis = dis + distance
+                # R[index] = distance < self.dis_R_thres
+                R[index] = distance < self.dis_R_thres
+            # R = locs
+            R = R.unsqueeze(1).repeat(1, self.num_glimpses).to(self.device)
+
+            # compute losses for differentiable modules
+            loss_action = F.mse_loss(l_t_final, y)
+            loss_baseline = F.mse_loss(baselines, R)
+
+            # compute reinforce loss
+            adjusted_reward = R - baselines.detach()
+            loss_reinforce = torch.sum(-log_pi * adjusted_reward, dim=1)
+            loss_reinforce = torch.mean(loss_reinforce, dim=0)
+
+            # sum up into a hybrid loss
+            loss = loss_action * 100 + loss_baseline + loss_reinforce
+            # loss =  loss_baseline + loss_reinforce
+
+            # compute accuracy
+            acc = dis / len(y)
+
+            print('avg dist is {}'.format(acc))
 
     def save_checkpoint(self, state, is_best):
         """
@@ -646,12 +714,6 @@ if __name__ == '__main__':
     fix = read_image(pathFix, channels_first=True, color=False) / 255
     # fix = torch.from_numpy(fix)
     np.mean(np.where(fix ==np.max(fix)), axis=1)
-
-
-
-
-    get_mean_loc()
-
 
 
 

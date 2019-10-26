@@ -16,8 +16,10 @@ def main(config):
     prepare_dirs(config)
 
     # logging
-    if config.logs_dir:
+    if config.logs_dir and config.is_train:
         sys.stdout = Logger(osp.join(config.logs_dir, 'log.txt'))
+    elif config.logs_dir and not config.is_train:
+        sys.stdout = Logger(osp.join(config.logs_dir, 'log-test.txt'))
 
     # ensure reproducibility
     torch.manual_seed(config.random_seed)
@@ -27,11 +29,11 @@ def main(config):
         kwargs = {'num_workers': 1, 'pin_memory': True}
 
     dataset = Dataset('train')
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=12,
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=True, num_workers=16,
                                                pin_memory=True)
 
     test_dataset = Dataset('test')
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=12,
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=16,
                                                  pin_memory=True)
 
 
