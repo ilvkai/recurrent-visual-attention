@@ -7,6 +7,10 @@ from torch.autograd import Variable
 import numpy as np
 from torchvision.models import resnet50
 
+from torchvision.models.detection import FasterRCNN
+import torchvision
+from torchvision.models.detection.rpn import AnchorGenerator
+
 
 class retina(object):
     """
@@ -209,6 +213,15 @@ class glimpse_network(nn.Module):
 
         self.feature_extractor = nn.Sequential(*list(resnet50(pretrained=True).children())[:-1])
 
+        #detection feature
+        backbone = torchvision.models.mobilenet_v2(pretrained=True).features
+        backbone.out_channels = 1280
+        anchor_generator = AnchorGenerator(sizes=((32, 64, 128, 256, 512),),aspect_ratios=((0.5, 1.0, 2.0),))
+        roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=[0],output_size=7,sampling_ratio=2)
+        self.detection_model = FasterRCNN(backbone,num_classes = 2,
+                                          rpn_anchor_generator = anchor_generator,box_roi_pool = roi_pooler)
+        self.detection_model.eval()
+
         # glimpse layer
         D_in = k*g*g*c
         D_in = 2048
@@ -224,6 +237,7 @@ class glimpse_network(nn.Module):
     def forward(self, x, l_t_prev, frame_index):
         # generate glimpse phi from image x
         phi = self.retina.foveate(x, l_t_prev, frame_index)
+        temp = self.detection_model(x[:,:,frame_index,:,:].squeeze())
 
         # train resnet or not
         # phi = self.feature_extractor(phi).detach()
