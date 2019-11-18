@@ -237,7 +237,7 @@ class glimpse_network(nn.Module):
     def forward(self, x, l_t_prev, frame_index):
         # generate glimpse phi from image x
         phi = self.retina.foveate(x, l_t_prev, frame_index)
-        temp = self.detection_model(x[:,:,frame_index,:,:].squeeze())
+        # temp = self.detection_model(x[:,:,frame_index,:,:].squeeze())
 
         # train resnet or not
         # phi = self.feature_extractor(phi).detach()
